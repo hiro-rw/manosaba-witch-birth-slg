@@ -1,54 +1,42 @@
 # -*- coding: utf-8 -*-
 """
 fertility.py
-受精確率。
-表示用は発覚前の内部妊娠を無視（0%に落とさない）。
-実際の着床判定は呼び出し側で pregnant_internal を見てスキップする。
+受胎度A案：
+  0〜99 → 大魔女 0% / 人間は周期どおり
+  100   → 大魔女のみ（因子＋周期） / 人間 0%
+触手では妊娠しない。
 """
-
 from game import state as S
 import config
 
 
 def human_fertility(g):
-    """表示・参考用。発覚済み妊娠・生理のみ 0。"""
+    """人間の子。受胎度100では 0。発覚妊娠・生理は 0。"""
     if S.is_pregnant_known(g) or S.is_period(g):
+        return 0
+    if g.get("conception", 0) >= config.CONCEPTION_WITCH_READY:
         return 0
     if S.is_ovulation(g):
         return 55
     d = g.get("cycle_day", 1)
-    period_len = g.get("period_days", 5)
-    if d <= period_len:
+    if d <= g.get("period_days", 5):
         return 0
     return 8
 
 
-def witch_fertility(g):
-    """触手交尾用。発覚済み妊娠・生理のみ 0。開発Lvは成功率に直接乗せない（耐性は負荷側）。"""
+def player_witch_fertility(g):
+    """大魔女。受胎度が100未満は常に 0。"""
     if S.is_pregnant_known(g) or S.is_period(g):
         return 0
-    base = g.get("conception", 0) * 0.28
-    if S.is_ovulation(g):
-        base += 18 + g.get("conception", 0) * 0.15
-    else:
-        base *= 0.35
-    return max(0, min(55, int(base)))
-
-
-def player_witch_fertility(g):
-    """
-    エッチでの大魔女確率。
-    player_factor 0〜100。上限付近で触手よりは低いが十分狙える。
-    """
-    if S.is_pregnant_known(g) or S.is_period(g):
+    if g.get("conception", 0) < config.CONCEPTION_WITCH_READY:
         return 0
     factor = S.state.get("player_factor", 0)
     pct = config.PLAYER_WITCH_BASE_PCT + factor * config.PLAYER_WITCH_PER_FACTOR
     if S.is_ovulation(g):
-        pct *= 1.4
+        pct *= 1.5
     else:
-        pct *= 0.45
-    return max(0, min(35, int(pct)))
+        pct *= 0.4
+    return max(0, min(45, int(pct)))
 
 
 def cycle_label(g):

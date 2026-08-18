@@ -31,7 +31,7 @@ def choose_intensity(g):
         print("正しい番号を入力してください。")
 
 
-def action_train():
+def action_train(intensity=None):
     """開発する（強度制）。発覚済み妊娠・生理・医務室は不可。内部妊娠は可。"""
     g = S.girls[S.state["current_target"]]
     if S.is_sealed(g):
@@ -56,8 +56,11 @@ def action_train():
         S.pause()
         return False
 
-    intensity = choose_intensity(g)
-    if not intensity:
+    if intensity is None:
+        intensity = choose_intensity(g)
+        if not intensity:
+            return False
+    if intensity not in ("soft", "normal", "hard"):
         return False
 
     aff = g.get("affection", 0)
@@ -94,24 +97,35 @@ def action_train():
     bonus = 1.0 + skill_lv * 0.1
 
     stamina_cost = random.randint(8, 14)
-    stress_gain = random.randint(1, 4)
     train_gain = max(1, int(random.randint(2, 5) * bonus))
     if intensity == "soft":
-        stress_gain = max(0, stress_gain - 1 - skill_lv // 3)
         train_gain = max(1, train_gain - 1)
     elif intensity == "hard":
         train_gain += 2
         if aff < config.AFFECTION_HARD_OK + 10:
-            stress_gain += 2
             g["affection"] = max(0, aff - random.randint(0, 3))
-    if intensity == "normal" and aff < config.AFFECTION_NORMAL_OK:
-        stress_gain += 2
-        g["affection"] = max(0, g.get("affection", 0) - random.randint(1, 4))
+
+    # 好感次第：高いとストレス軽減、低いと逆効果
+    if aff >= config.AFFECTION_STRESS_RELIEF:
+        stress_delta = -random.randint(3, 8)
+        if intensity == "hard":
+            stress_delta = -random.randint(1, 4)
+    elif aff >= config.AFFECTION_NORMAL_OK:
+        stress_delta = random.randint(0, 3)
+    else:
+        stress_delta = random.randint(3, 8)
+        if intensity == "hard":
+            stress_delta += 2
 
     g["stamina"] = max(0, g["stamina"] - stamina_cost)
-    g["stress"] = min(100, g["stress"] + stress_gain)
+    if stress_delta >= 0:
+        g["stress"] = min(100, g["stress"] + stress_delta)
+        stress_txt = f"ストレス +{stress_delta}"
+    else:
+        g["stress"] = max(0, g["stress"] + stress_delta)
+        stress_txt = f"ストレス {stress_delta}"
     g["training_level"] = min(100, g.get("training_level", 0) + train_gain)
-    print(f"【結果】体力 -{stamina_cost}  ストレス +{stress_gain}  開発Lv +{train_gain}")
+    print(f"【結果】体力 -{stamina_cost}  {stress_txt}  開発Lv +{train_gain}")
     S.pause()
     return True
 
@@ -127,7 +141,7 @@ def action_bond():
     charm = S.state.get("skill_charm", 0)
     gain = random.randint(4, 9) + charm
     # ストレスケアを強化（触手負荷の主な回復手段）
-    stress_down = random.randint(10, 18) + charm // 2
+    stress_down = random.randint(*config.BOND_STRESS_DOWN) + max(0, charm // 3)
     g["affection"] = min(100, g.get("affection", 0) + gain)
     g["stress"] = max(0, g["stress"] - stress_down)
 
@@ -183,15 +197,15 @@ def action_sex():
         return False
 
     aff = g.get("affection", 0)
-    print(f"\n--- エッチする：{g['name']}（好感度 {aff}）---")
-
-    if aff <= config.AFFECTION_REFUSE:
-        print(f"\n{g['name']}は顔を背け、はっきりと拒んだ。")
-        print("「……だめ。まだ、無理。」")
-        g["stress"] = min(100, g["stress"] + random.randint(2, 5))
-        print("【結果】拒否された。ストレスが少し上がった。")
+    # 仲良し必須：閾値未満は行動不可（フェイズ消費なし）
+    if aff < config.AFFECTION_SEX_MIN:
+        print(f"\n{g['name']}とは、まだその関係になれない。")
+        print(f"（エッチには好感度 {config.AFFECTION_SEX_MIN} 以上が必要。いま {aff}）")
+        print("先に「仲良くする」で距離を縮めよう。")
         S.pause()
-        return True
+        return False
+
+    print(f"\n--- エッチする：{g['name']}（好感度 {aff}／受胎度 {g.get('conception', 0)}）---")
 
     from game.characters.registry import get_module
     mod = get_module(g["key"])
@@ -214,16 +228,37 @@ def action_sex():
             print("（初めての壁が、静かにほどける）")
         print(f"「{S.pick_line(g, 'sex')}」")
 
-    stamina_cost = random.randint(12, 18)
+    # 体力：開発Lvで軽減
+    lv = g.get("training_level", 0)
+    stamina_cost = random.randint(*config.SEX_STAMINA)
+    stamina_cost = int(round(stamina_cost - lv * config.SEX_STAMINA_REDUCE_PER_LV))
+    stamina_cost = max(config.SEX_STAMINA_FLOOR, stamina_cost)
     g["stamina"] = max(0, g["stamina"] - stamina_cost)
-    g["stress"] = max(0, g["stress"] - random.randint(0, 3))
-    # 開発Lvは「開発する」またはオナニーのみ（エッチでは上げない）
 
-    # すでに内部妊娠なら判定スキップ（二重妊娠なし・ネタバレなし）
+    # ストレス：好感が高いと軽減、低いと逆効果（通常は閾値以上なので軽減寄り）
+    if aff >= config.AFFECTION_LOVE:
+        stress_delta = -random.randint(8, 14)
+    elif aff >= config.AFFECTION_STRESS_RELIEF:
+        stress_delta = -random.randint(4, 10)
+    else:
+        stress_delta = random.randint(1, 5)
+    if stress_delta >= 0:
+        g["stress"] = min(100, g["stress"] + stress_delta)
+        stress_txt = f"ストレス +{stress_delta}"
+    else:
+        g["stress"] = max(0, g["stress"] + stress_delta)
+        stress_txt = f"ストレス {stress_delta}"
+
     human_c = F.human_fertility(g)
     witch_c = F.player_witch_fertility(g)
-    print(f"\n【結果】体力 -{stamina_cost}  人間受精目安 {human_c}%  大魔女(あなた)目安 {witch_c}%")
-    # 内部妊娠中は着床判定だけスキップ（表示は発覚まで通常）
+    conc = g.get("conception", 0)
+    print(f"\n【結果】体力 -{stamina_cost}  {stress_txt}")
+    print(f"  受胎度 {conc}/100  → 人間受精目安 {human_c}%  大魔女目安 {witch_c}%")
+    if conc < config.CONCEPTION_WITCH_READY:
+        print("  （受胎度100未満のため大魔女は着床しない／人間のみ）")
+    else:
+        print("  （おまんこ開発完了：大魔女専用。人間の子は着床しない）")
+
     if not g.get("pregnant_internal"):
         if witch_c > 0 and random.randint(1, 100) <= witch_c:
             _apply_conceive(g, "大魔女")
@@ -324,14 +359,14 @@ def action_meditate():
         print(f"\n因子は十分に整っている（{config.PLAYER_FACTOR_MAX}）。")
         S.pause()
         return False
-    gain = random.randint(1, 3)
+    gain = random.randint(*config.MEDITATE_FACTOR_GAIN)
     if pf + gain > config.PLAYER_FACTOR_MAX:
         gain = config.PLAYER_FACTOR_MAX - pf
     print("\n--- 瞑想 ---")
     S.state["player_factor"] = pf + gain
     print("静かに呼吸を整え、体内の魔女因子に意識を向ける。")
     print(f"【結果】因子 +{gain} → {S.state['player_factor']}/{config.PLAYER_FACTOR_MAX}")
-    print("（約2ヶ月の積み重ねで、触手に頼らない大魔女の可能性が育つ）")
+    print("（触手レベルは上がらない。安全に因子を稼ぐ手段）")
     print("（その間、目標の少女は自由に過ごしている）")
     S.pause()
     return True

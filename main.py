@@ -28,8 +28,8 @@ INTRO_TEXT = """
 ゴクチョーは、なぜか魔女因子を持つ一般の男性である{name}に、
 計画の実行を命じた。
 
-・館の触手 …… 大魔女の受胎に高い見込み
-・あなた自身の因子 …… エッチでも、ごく低い見込みで大魔女があり得る
+・館の触手 …… 身体を「魔女のおまんこ」へ改造（受精はしない）
+・あなた自身 …… 関係を築き、エッチで人間／大魔女を孕ませる
 
 少女たちの心と体を、優しくほどきながら、
 誰かに大魔女を宿し、出産まで至らせること。
@@ -123,7 +123,6 @@ def menu_target_day():
     if g and S.is_in_infirmary(g):
         print("\n【医務室】可能な行動は「仲良くする」のみです。")
         print("  1. 仲良くする")
-        print("  2. 目標を変更する（時間消費なし）")
         print("  0. 戻る")
         try:
             cmd = int(input("番号 > "))
@@ -133,18 +132,16 @@ def menu_target_day():
             return False, False
         if cmd == 1:
             return day.action_bond(), False
-        if cmd == 2:
-            status.change_target()
-            return False, False
         return False, False
 
     print("\n【目標への行動】")
-    print("  1. 開発する（ソフト／ノーマル／ハード）")
-    print("  2. 仲良くする")
-    print("  3. エッチする")
-    print("  4. 休憩")
-    print("  5. 体力トレーニング")
-    print("  6. 目標を変更する（時間消費なし）")
+    print("  1. 仲良くする")
+    print("  2. エッチする")
+    print("  3. 開発（ソフト）")
+    print("  4. 開発（ノーマル）")
+    print("  5. 開発（ハード）")
+    print("  6. 体力トレーニング")
+    print("  7. 休憩")
     print("  0. 戻る")
     try:
         cmd = int(input("番号 > "))
@@ -153,18 +150,19 @@ def menu_target_day():
     if cmd == 0:
         return False, False
     if cmd == 1:
-        return day.action_train(), False
-    if cmd == 2:
         return day.action_bond(), False
-    if cmd == 3:
+    if cmd == 2:
         return day.action_sex(), False
+    if cmd == 3:
+        return day.action_train("soft"), False
     if cmd == 4:
-        return day.action_rest(), False
+        return day.action_train("normal"), False
     if cmd == 5:
-        return day.action_stamina_train(), False
+        return day.action_train("hard"), False
     if cmd == 6:
-        status.change_target()
-        return False, False
+        return day.action_stamina_train(), False
+    if cmd == 7:
+        return day.action_rest(), False
     print("正しい番号を入力してください。")
     return False, False
 
@@ -195,11 +193,10 @@ def menu_self_day():
 
 
 def menu_target_night():
-    print("\n【目標への行動】")
-    print("  1. 触手調教")
-    print("  2. 触手交尾（大魔女）")
+    print("\n【夜の行動】")
+    print("  1. 触手調教（受胎度）")
+    print("  2. 触手から因子を引き出す")
     print("  3. 就寝")
-    print("  4. 目標を変更する（時間消費なし）")
     print("  0. 戻る")
     try:
         cmd = int(input("番号 > "))
@@ -210,12 +207,9 @@ def menu_target_night():
     if cmd == 1:
         return night.action_tentacle_train()
     if cmd == 2:
-        return night.action_tentacle_sex()
+        return night.action_extract_factor()
     if cmd == 3:
         return night.action_sleep()
-    if cmd == 4:
-        status.change_target()
-        return False
     print("正しい番号を入力してください。")
     return False
 
@@ -237,8 +231,9 @@ def game_loop():
         if phase in ("morning", "afternoon"):
             print("  1. 目標への行動")
             print("  2. 自分の行動")
-            print("  3. ステータス一覧（時間消費なし）")
-            print("  4. システム")
+            print("  3. 目標を変更する（時間消費なし）")
+            print("  4. ステータス一覧（時間消費なし）")
+            print("  5. システム")
             try:
                 cmd = int(input("番号 > "))
             except ValueError:
@@ -252,18 +247,20 @@ def game_loop():
                 if consumed:
                     cycle.advance_phase(target_was_free=free_target)
             elif cmd == 3:
-                # ストレス把握用。フェイズは進まない
-                status.show_status_list()
+                status.change_target()
             elif cmd == 4:
+                status.show_status_list()
+            elif cmd == 5:
                 result = menu_system()
                 if result == "quit":
                     return
             else:
                 print("正しい番号を入力してください。")
         else:
-            print("  1. 目標への行動")
-            print("  2. ステータス一覧（時間消費なし）")
-            print("  3. システム")
+            print("  1. 夜の行動")
+            print("  2. 目標を変更する（時間消費なし）")
+            print("  3. ステータス一覧（時間消費なし）")
+            print("  4. システム")
             try:
                 cmd = int(input("番号 > "))
             except ValueError:
@@ -273,8 +270,10 @@ def game_loop():
                 if consumed:
                     cycle.advance_phase()
             elif cmd == 2:
-                status.show_status_list()
+                status.change_target()
             elif cmd == 3:
+                status.show_status_list()
+            elif cmd == 4:
                 result = menu_system()
                 if result == "quit":
                     return

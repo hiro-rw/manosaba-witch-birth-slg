@@ -52,8 +52,6 @@ def load_girls():
         data.setdefault("pregnant_internal", False)
         # 封印（魔女化後）
         data.setdefault("sealed", False)
-        # 部位システム廃止。旧セーブに parts があっても使わない
-        data.pop("parts", None)
     return girls
 
 
@@ -69,6 +67,7 @@ def init_state(player_name="あなた"):
         "player_type": "candidate_male",
         "player_name": player_name or "あなた",
         "player_factor": 0,
+        "tentacle_level": 1,
         "births_witch": 0,
         "births_human": 0,
         "emma_witchified": False,
@@ -77,17 +76,8 @@ def init_state(player_name="あなた"):
         "skill_soft": 0,
         "skill_normal": 0,
         "skill_hard": 0,
-        # 旧セーブ互換（読み込み時に無視可）
-        "skill_breast": 0,
-        "skill_pussy": 0,
-        "skill_ass": 0,
     }
     return state
-
-
-def save_girl_file(girl):
-    """定義ファイルは書き換えない。互換のため残す。"""
-    return
 
 
 def has_tag(g, tag):

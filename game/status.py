@@ -36,7 +36,7 @@ def show_status():
     print(f"【大魔女受胎計画】 {st['day']}日目/{config.DAYS_IN_YEAR}日  "
           f"フェイズ:{config.PHASE_NAMES[st['phase']]}")
     print(f"あなた:{st.get('player_name', '？')}  資金:{st['money']}G  "
-          f"因子:{st.get('player_factor', 0)}/{config.PLAYER_FACTOR_MAX}")
+          f"因子:{st.get('player_factor', 0)}/{config.PLAYER_FACTOR_MAX}  触手Lv:{st.get('tentacle_level', 1)}/{config.TENTACLE_LEVEL_MAX}")
     print(f"テク 魅{st.get('skill_charm', 0)}/"
           f"ソ{st.get('skill_soft', 0)}/"
           f"ノ{st.get('skill_normal', 0)}/"
@@ -49,13 +49,12 @@ def show_status():
         return
     print(f"★目標: {t['name']}")
     print(f"  体力:{t['stamina']:3d}/{t.get('max_stamina', 100):3d}  "
-          f"ストレス:{t['stress']:3d}  受胎度:{t['conception']:3d}")
+          f"ストレス:{t['stress']:3d}  受胎度:{t['conception']:3d}/100")
     print(f"  好感:{t.get('affection', 0):3d}  開発Lv:{t.get('training_level', 0):3d}  "
           f"周期:{F.cycle_label(t)}")
     print(f"  状態: {_tag_short(t, show_days=False)}")
     print(f"  受精目安  人間:{F.human_fertility(t)}%  "
-          f"大魔女(触手):{F.witch_fertility(t)}%  "
-          f"大魔女(あなた):{F.player_witch_fertility(t)}%")
+          f"大魔女:{F.player_witch_fertility(t)}%")
     print("=" * 64)
 
 
@@ -94,8 +93,7 @@ def show_status_detail():
           f"開発Lv:{g.get('training_level', 0)}")
     print(f"周期:{F.cycle_label(g)}  状態:{_tag_short(g, show_days=True)}")
     print(f"人間:{F.human_fertility(g)}%  "
-          f"大魔女(触手):{F.witch_fertility(g)}%  "
-          f"大魔女(あなた):{F.player_witch_fertility(g)}%")
+          f"大魔女:{F.player_witch_fertility(g)}%")
     if g.get("baby_type") and g.get("pregnancy_noticed"):
         print(f"baby_type: {g['baby_type']}  妊娠日数: {g.get('pregnancy_days', 0)}")
     S.pause()

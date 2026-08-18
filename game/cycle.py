@@ -12,6 +12,70 @@ from game import state as S
 from game.actions_night import night_auto_tentacle
 
 
+
+def show_morning_line():
+    """日付変更時、目標の女の子から一言。"""
+    key = S.state.get("current_target")
+    g = S.girls.get(key) if key else None
+    if not g or S.is_sealed(g):
+        return
+    from game.characters.registry import get_module
+    mod = get_module(g.get("key"))
+    if mod and hasattr(mod, "on_morning"):
+        result = mod.on_morning(g)
+        if isinstance(result, str):
+            print("\n（朝・%s）" % g["name"])
+            print(result)
+            return
+        if result:
+            print("\n（朝・%s）" % g["name"])
+            for line in result:
+                print(line)
+            return
+    aff = g.get("affection", 0)
+    stress = g.get("stress", 0)
+    if S.is_in_infirmary(g):
+        msg = "「……医務室、静かですね」"
+    elif S.is_pregnant_known(g):
+        msg = random.choice([
+            "「お腹、重い……ごめんね」",
+            "「おはよう。今日も、ゆっくりでいい？」",
+            "「……動くの、少しつらい」",
+        ])
+    elif S.is_period(g):
+        msg = random.choice([
+            "「うーん、調子わるい……ごめんね」",
+            "「今日は触らないで、ほしい」",
+            "「……機嫌悪いかも。相手しないで」",
+        ])
+    elif stress >= 80:
+        msg = random.choice([
+            "「……頭がいっぱい」",
+            "「少し、ひとりにして」",
+            "「おはよう、以上」",
+        ])
+    elif aff >= 80:
+        msg = random.choice([
+            "「今日も、君に会えて嬉しい」",
+            "「おはよう。朝から顔見られて安心」",
+            "「……来てくれたんだ」",
+        ])
+    elif aff < 30:
+        msg = random.choice([
+            "「……用？」",
+            "「おはよう、以上」",
+            "「何かあるなら、短くして」",
+        ])
+    else:
+        msg = random.choice([
+            "「おはよう、いい天気だね」",
+            "「……朝だね」",
+            "「今日も、よろしく」",
+        ])
+    print("\n（朝・%s）" % g["name"])
+    print(msg)
+
+
 def day_auto_actions(include_target=False):
     """未選択（または目標フリー時）の少女のフリー行動。"""
     print("\n【少女たちの様子】")
@@ -57,11 +121,12 @@ def day_auto_actions(include_target=False):
             g["stress"] = max(0, g["stress"] - sd)
             print(f"・{name}はぼんやりして気を紛らわせた。（ストレス -{sd}）")
         elif r < 0.68 and not S.is_period(g):
-            # 自慰
+            # 自慰：ストレス解消＋開発Lv微増
             gain = random.randint(1, 2)
+            sd = random.randint(4, 10)
             g["training_level"] = min(100, g.get("training_level", 0) + gain)
-            g["stress"] = max(0, g["stress"] - random.randint(0, 2))
-            print(f"・{name}は部屋で、自分の体を慰めていた……（開発Lv +{gain}）")
+            g["stress"] = max(0, g["stress"] - sd)
+            print(f"・{name}は部屋で、自分の体を慰めていた……（開発Lv +{gain} ストレス -{sd}）")
         elif r < 0.82:
             print(f"・{name}は部屋で過ごしている。")
             g["stress"] = min(100, g["stress"] + random.randint(-2, 3))
@@ -242,5 +307,6 @@ def advance_phase(target_was_free=False):
                 break
 
     print(f"\n--- {st['day']}日目 午前が始まりました ---")
+    show_morning_line()
     if st["day"] > config.DAYS_IN_YEAR:
         print("\n※ 期限を過ぎました。システムメニューの「エンディングへ」から結末を確定できます。")
